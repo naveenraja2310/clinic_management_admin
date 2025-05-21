@@ -3,8 +3,16 @@ import { Table, TableHeader, TableBody, TableRow, TableCell } from '../component
 import { Modal } from '../components/ui/modal';
 import Form from '../components/form/Form';
 import Input from '../components/form/input/InputField';
+import TimePicker from '../components/form/time-picker';
+import DatePicker from '../components/form/date-picker';
 import type { Hospital, HospitalFormData } from '../types/hospital';
 import { AlertIcon } from '../icons';
+import axios from 'axios';
+
+// Axios instance
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+});
 
 const HospitalManagement = () => {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
@@ -17,89 +25,65 @@ const HospitalManagement = () => {
   const itemsPerPage = 10;
 
   const initialFormData: HospitalFormData = {
-    registrationId: '',
-    registrationDate: '',
-    clinicName: '',
+    registration_id: '',
+    registration_date: '',
+    clinic_name: '',
     speciality: '',
     address: '',
     address2: '',
-    pinCode: '',
+    pin_code: '',
     country: '',
     state: '',
     city: '',
-    phoneNumber: '',
-    mobileNumber: '',
-    workingHours: {
-      fromTime: '',
-      toTime: ''
-    }
+    phone_number: '',
+    mobile_number: '',
+    working_hours_from: '',
+    working_hours_to: ''
   };
 
   const [formData, setFormData] = useState<HospitalFormData>(initialFormData);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name.startsWith('workingHours.')) {
-      const field = name.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        workingHours: {
-          ...prev.workingHours,
-          [field]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    
+
+    const hospitalData = {
+      registration_id: formData.registration_id,
+      registration_date: new Date(formData.registration_date),
+      clinic_name: formData.clinic_name,
+      speciality: formData.speciality,
+      address: formData.address,
+      address2: formData.address2,
+      pin_code: formData.pin_code,
+      country: formData.country,
+      state: formData.state,
+      city: formData.city,
+      phone_number: formData.phone_number,
+      mobile_number: formData.mobile_number,
+      working_hours_from: formData.working_hours_from,
+      working_hours_to: formData.working_hours_to,
+    };
+
     try {
       if (editingHospital) {
-        // Update existing hospital
-        const response = await fetch(`https://api.example.com/hospitals/${editingHospital.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to update hospital');
+        const response = await api.put(`/hospital/${editingHospital.id}`, hospitalData);
+        if (response.status === 200 || response.status === 201) {
+          await fetchHospitals();
         }
-        
-        // Update local state
-        setHospitals(prev =>
-          prev.map(hospital =>
-            hospital.id === editingHospital.id
-              ? { ...formData, id: hospital.id }
-              : hospital
-          )
-        );
       } else {
-        // Create new hospital
-        const response = await fetch('https://api.example.com/hospitals', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to create hospital');
+        const response = await api.post('/hospital', hospitalData);
+        if (response.status === 200 || response.status === 201) {
+          await fetchHospitals();
         }
-        
-        const newHospital = await response.json();
-        setHospitals(prev => [...prev, newHospital]);
       }
       handleCloseModal();
     } catch (err) {
@@ -112,7 +96,40 @@ const HospitalManagement = () => {
 
   const handleEdit = (hospital: Hospital) => {
     setEditingHospital(hospital);
-    setFormData(hospital);
+    const {
+      registration_id = '',
+      registration_date = '',
+      clinic_name = '',
+      speciality = '',
+      address = '',
+      address2 = '',
+      pin_code = '',
+      country = '',
+      state = '',
+      city = '',
+      phone_number = '',
+      mobile_number = '',
+      working_hours_from = '',
+      working_hours_to = ''
+    } = hospital;
+
+    setFormData({
+      registration_id,
+      registration_date,
+      clinic_name,
+      speciality,
+      address,
+      address2,
+      pin_code,
+      country,
+      state,
+      city,
+      phone_number,
+      mobile_number,
+      working_hours_from,
+      working_hours_to,
+    });
+
     setIsModalOpen(true);
   };
 
@@ -121,15 +138,8 @@ const HospitalManagement = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`https://api.example.com/hospitals/${id}`, {
-          method: 'DELETE',
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to delete hospital');
-        }
-        
-        setHospitals(prev => prev.filter(hospital => hospital.id !== id));
+        await api.delete(`/hospital/${id}`);
+        setHospitals(prev => prev.filter(h => h.id !== id));
       } catch (err) {
         setError('Error deleting hospital. Please try again.');
         console.error('Error deleting hospital:', err);
@@ -145,18 +155,13 @@ const HospitalManagement = () => {
     setFormData(initialFormData);
   };
 
-  // API functions for hospital data
   const fetchHospitals = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Replace with your actual API endpoint
-      const response = await fetch('https://api.example.com/hospitals');
-      if (!response.ok) {
-        throw new Error('Failed to fetch hospitals');
-      }
-      const data = await response.json();
-      setHospitals(data);
+      const response = await api.get('/hospital');
+      const fetchedHospitals = response?.data?.data?.hospitals || response?.data?.hospitals || response?.data || [];
+      setHospitals(fetchedHospitals);
     } catch (err) {
       setError('Error loading hospital data. Please try again later.');
       console.error('Error fetching hospitals:', err);
@@ -165,15 +170,16 @@ const HospitalManagement = () => {
     }
   };
 
-  // Load hospitals on component mount
   useEffect(() => {
     fetchHospitals();
   }, []);
 
-  const filteredHospitals = hospitals.filter(hospital =>
-    hospital.clinicName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hospital.registrationId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredHospitals = Array.isArray(hospitals)
+    ? hospitals.filter(hospital =>
+      (hospital.clinic_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (hospital.registration_id || '').toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    : [];
 
   const totalPages = Math.ceil(filteredHospitals.length / itemsPerPage);
   const currentHospitals = filteredHospitals.slice(
@@ -181,6 +187,7 @@ const HospitalManagement = () => {
     currentPage * itemsPerPage
   );
 
+  console.log("currentHospitals", currentHospitals)
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -199,66 +206,101 @@ const HospitalManagement = () => {
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-        {isLoading ? (
-          <div className="flex justify-center items-center p-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
-          </div>
-        ) : error ? (
-          <div className="flex justify-center items-center p-8 text-red-500">
-            <p>{error}</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableCell isHeader>Registration ID</TableCell>
-                <TableCell isHeader>Clinic Name</TableCell>
-                <TableCell isHeader>Speciality</TableCell>
-                <TableCell isHeader>Contact</TableCell>
-                <TableCell isHeader>Actions</TableCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {currentHospitals.length > 0 ? (
-                currentHospitals.map((hospital) => (
-                  <TableRow key={hospital.id}>
-                    <TableCell>{hospital.registrationId}</TableCell>
-                    <TableCell>{hospital.clinicName}</TableCell>
-                    <TableCell>{hospital.speciality}</TableCell>
-                    <TableCell>{hospital.phoneNumber}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(hospital)}
-                          className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(hospital.id)}
-                          className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                        >
-                          Delete
-                        </button>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+        <div className="max-w-full overflow-x-auto">
+          {isLoading ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
+            </div>
+          ) : error ? (
+            <div className="flex justify-center items-center p-8 text-red-500">
+              <p>{error}</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+                <TableRow>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  >
+                    Registration ID
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  >
+                    Clinic Name
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  >
+                    Speciality
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  >
+                    Contact
+                  </TableCell>
+                  <TableCell
+                    isHeader
+                    className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
+                  >
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                {currentHospitals.length > 0 ? (
+                  currentHospitals.map((hospital) => (
+                    <TableRow key={hospital.id}>
+                      <TableCell className="px-5 py-4 sm:px-6 text-start text-gray-500 text-theme-sm dark:text-gray-400">
+                        {hospital.registration_id}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {hospital.clinic_name}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {hospital.speciality}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {hospital.phone_number}
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(hospital)}
+                            className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(hospital.id)}
+                            className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell className="px-5 py-4">
+                      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+                        <AlertIcon className="w-12 h-12 mb-2 text-gray-400" />
+                        <p className="text-lg font-medium">No Data Found</p>
+                        <p className="text-sm">No hospital records are available at the moment.</p>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell>
-                    <div className="flex flex-col items-center justify-center py-8 text-gray-500" style={{ gridColumn: `span 5 / span 5` }}>
-                      <AlertIcon className="w-12 h-12 mb-2 text-gray-400" />
-                      <p className="text-lg font-medium">No Data Found</p>
-                      <p className="text-sm">No hospital records are available at the moment.</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </div>
 
         {totalPages > 1 && (
           <div className="flex justify-center gap-2 p-4">
@@ -266,11 +308,10 @@ const HospitalManagement = () => {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded ${
-                  currentPage === page
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                className={`px-3 py-1 rounded ${currentPage === page
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
               >
                 {page}
               </button>
@@ -279,184 +320,99 @@ const HospitalManagement = () => {
         )}
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        className="max-w-2xl p-6"
-      >
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} className="max-w-2xl p-6">
         <h2 className="text-2xl font-semibold mb-6">
           {editingHospital ? 'Edit Hospital' : 'Create Hospital'}
         </h2>
         <Form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Regular text inputs */}
+            {[
+              ['registration_id', 'Registration ID'],
+              ['clinic_name', 'Clinic Name'],
+              ['speciality', 'Speciality'],
+              ['address', 'Address'],
+              ['address2', 'Address 2'],
+              ['pin_code', 'Pin Code'],
+              ['country', 'Country'],
+              ['state', 'State'],
+              ['city', 'City'],
+              ['phone_number', 'Phone Number'],
+              ['mobile_number', 'Mobile Number'],
+            ].map(([name, label]) => (
+              <div key={name} className="flex flex-col gap-1">
+                <label htmlFor={name} className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+                <Input
+                  id={name}
+                  type="text"
+                  name={name}
+                  value={formData[name as keyof HospitalFormData]}
+                  onChange={handleInputChange}
+                  placeholder={label}
+                />
+              </div>
+            ))}
+
+            {/* Date Picker */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="registrationId" className="text-sm font-medium text-gray-700 dark:text-gray-300">Registration ID</label>
-              <Input
-                id="registrationId"
-                type="text"
-                name="registrationId"
-                placeholder="Registration ID"
-                value={formData.registrationId}
-                onChange={handleInputChange}
+              <DatePicker
+                id="registration_date"
+                label="Registration Date"
+                defaultDate={formData.registration_date ? new Date(formData.registration_date) : undefined}
+                onChange={(selectedDates) => {
+                  if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
+                    setFormData(prev => ({
+                      ...prev,
+                      registration_date: date.toISOString().split('T')[0]
+                    }));
+                  }
+                }}
               />
             </div>
+
+            {/* Time Pickers */}
             <div className="flex flex-col gap-1">
-              <label htmlFor="registrationDate" className="text-sm font-medium text-gray-700 dark:text-gray-300">Registration Date</label>
-              <Input
-                id="registrationDate"
-                type="date"
-                name="registrationDate"
-                value={formData.registrationDate}
-                onChange={handleInputChange}
+              <TimePicker
+                id="working_hours_from"
+                label="Working Hours From"
+                defaultTime={formData.working_hours_from ? new Date(`1970-01-01T${formData.working_hours_from}`) : undefined}
+                onChange={(selectedDates) => {
+                  if (selectedDates.length > 0) {
+                    const time = selectedDates[0];
+                    setFormData(prev => ({
+                      ...prev,
+                      working_hours_from: time.toTimeString().split(' ')[0].substring(0, 5)
+                    }));
+                  }
+                }}
               />
             </div>
+
             <div className="flex flex-col gap-1">
-              <label htmlFor="clinicName" className="text-sm font-medium text-gray-700 dark:text-gray-300">Clinic Name</label>
-              <Input
-                id="clinicName"
-                type="text"
-                name="clinicName"
-                placeholder="Clinic Name"
-                value={formData.clinicName}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="speciality" className="text-sm font-medium text-gray-700 dark:text-gray-300">Speciality</label>
-              <Input
-                id="speciality"
-                type="text"
-                name="speciality"
-                placeholder="Speciality"
-                value={formData.speciality}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="address" className="text-sm font-medium text-gray-700 dark:text-gray-300">Address</label>
-              <Input
-                id="address"
-                type="text"
-                name="address"
-                placeholder="Address"
-                value={formData.address}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="address2" className="text-sm font-medium text-gray-700 dark:text-gray-300">Address 2</label>
-              <Input
-                id="address2"
-                type="text"
-                name="address2"
-                placeholder="Address 2"
-                value={formData.address2}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="pinCode" className="text-sm font-medium text-gray-700 dark:text-gray-300">Pin Code</label>
-              <Input
-                id="pinCode"
-                type="text"
-                name="pinCode"
-                placeholder="Pin Code"
-                value={formData.pinCode}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="country" className="text-sm font-medium text-gray-700 dark:text-gray-300">Country</label>
-              <Input
-                id="country"
-                type="text"
-                name="country"
-                placeholder="Country"
-                value={formData.country}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="state" className="text-sm font-medium text-gray-700 dark:text-gray-300">State</label>
-              <Input
-                id="state"
-                type="text"
-                name="state"
-                placeholder="State"
-                value={formData.state}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="city" className="text-sm font-medium text-gray-700 dark:text-gray-300">City</label>
-              <Input
-                id="city"
-                type="text"
-                name="city"
-                placeholder="City"
-                value={formData.city}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="phoneNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone Number</label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                name="phoneNumber"
-                placeholder="Phone Number"
-                value={formData.phoneNumber}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="mobileNumber" className="text-sm font-medium text-gray-700 dark:text-gray-300">Mobile Number</label>
-              <Input
-                id="mobileNumber"
-                type="tel"
-                name="mobileNumber"
-                placeholder="Mobile Number"
-                value={formData.mobileNumber}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="workingHoursFrom" className="text-sm font-medium text-gray-700 dark:text-gray-300">Working Hours From</label>
-              <Input
-                id="workingHoursFrom"
-                type="time"
-                name="workingHours.fromTime"
-                placeholder="From Time"
-                value={formData.workingHours.fromTime}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="workingHoursTo" className="text-sm font-medium text-gray-700 dark:text-gray-300">Working Hours To</label>
-              <Input
-                id="workingHoursTo"
-                type="time"
-                name="workingHours.toTime"
-                placeholder="To Time"
-                value={formData.workingHours.toTime}
-                onChange={handleInputChange}
+              <TimePicker
+                id="working_hours_to"
+                label="Working Hours To"
+                defaultTime={formData.working_hours_to ? new Date(`1970-01-01T${formData.working_hours_to}`) : undefined}
+                onChange={(selectedDates) => {
+                  if (selectedDates.length > 0) {
+                    const time = selectedDates[0];
+                    setFormData(prev => ({
+                      ...prev,
+                      working_hours_to: time.toTimeString().split(' ')[0].substring(0, 5)
+                    }));
+                  }
+                }}
               />
             </div>
           </div>
-
-          <div className="flex justify-end gap-4 mt-6">
-            <button
-              type="button"
-              onClick={handleCloseModal}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100"
-            >
-              Cancel
-            </button>
+          <div className="flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              disabled={isLoading}
             >
-              {editingHospital ? 'Update' : 'Save'}
+              {isLoading ? 'Saving...' : 'Save'}
             </button>
           </div>
         </Form>

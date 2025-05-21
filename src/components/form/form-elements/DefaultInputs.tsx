@@ -5,6 +5,7 @@ import Input from "../input/InputField";
 import Select from "../Select";
 import { EyeCloseIcon, EyeIcon, TimeIcon } from "../../../icons";
 import DatePicker from "../date-picker.tsx";
+import TimePickerInput from "./TimePickerInput";
 
 export default function DefaultInputs() {
   const [showPassword, setShowPassword] = useState(false);
@@ -70,18 +71,20 @@ export default function DefaultInputs() {
         </div>
 
         <div>
-          <Label htmlFor="tm">Time Picker Input</Label>
-          <div className="relative">
-            <Input
-              type="time"
-              id="tm"
-              name="tm"
-              onChange={(e) => console.log(e.target.value)}
-            />
-            <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-              <TimeIcon className="size-6" />
-            </span>
-          </div>
+          <TimePickerInput
+            label="Working Hours From"
+            name="working_hours_from"
+            value=""
+            onChange={(value) => console.log('Working hours from:', value)}
+          />
+        </div>
+        <div>
+          <TimePickerInput
+            label="Working Hours To"
+            name="working_hours_to"
+            value=""
+            onChange={(value) => console.log('Working hours to:', value)}
+          />
         </div>
         <div>
           <Label htmlFor="tm">Input with Payment</Label>
