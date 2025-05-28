@@ -2,6 +2,8 @@ export interface Hospital {
   id: string;
   registration_id: string;
   registration_date: string;
+  email: string;
+  logo: string;
   clinic_name: string;
   speciality: string;
   address: string;

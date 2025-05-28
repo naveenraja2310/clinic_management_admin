@@ -1,12 +1,12 @@
 import { useRef, useEffect } from "react";
-
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   className?: string;
   children: React.ReactNode;
-  showCloseButton?: boolean; // New prop to control close button visibility
-  isFullscreen?: boolean; // Default to false for backwards compatibility
+  showCloseButton?: boolean;
+  isFullscreen?: boolean;
+  closeOnOutsideClick?: boolean; // New prop to control outside click behavior
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -14,8 +14,9 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   className,
-  showCloseButton = true, // Default to true for backwards compatibility
+  showCloseButton = true,
   isFullscreen = false,
+  closeOnOutsideClick = false, // Default to false to prevent automatic closing
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -51,19 +52,31 @@ export const Modal: React.FC<ModalProps> = ({
 
   const contentClasses = isFullscreen
     ? "w-full h-full"
-    : "relative w-full rounded-3xl bg-white  dark:bg-gray-900";
+    : "relative w-full max-h-[90vh] rounded-3xl bg-white dark:bg-gray-900";
+
+  const modalClasses = isFullscreen
+    ? "fixed inset-0 flex items-center justify-center modal z-99999"
+    : "fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999";
+
+  // Handle backdrop click based on the closeOnOutsideClick prop
+  const handleBackdropClick = () => {
+    if (closeOnOutsideClick) {
+      onClose();
+    }
+    // If closeOnOutsideClick is false, do nothing when backdrop is clicked
+  };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+    <div className={modalClasses}>
       {!isFullscreen && (
         <div
           className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
-          onClick={onClose}
+          onClick={handleBackdropClick} // Updated to use the conditional handler
         ></div>
       )}
       <div
         ref={modalRef}
-        className={`${contentClasses}  ${className}`}
+        className={`${contentClasses} ${className} ${isFullscreen ? '' : 'overflow-y-auto max-h-[90vh]'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {showCloseButton && (
@@ -87,7 +100,7 @@ export const Modal: React.FC<ModalProps> = ({
             </svg>
           </button>
         )}
-        <div>{children}</div>
+        <div className={isFullscreen ? 'h-full' : 'p-6'}>{children}</div>
       </div>
     </div>
   );
